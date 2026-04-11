@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  name          String
+  email         String         @unique
+  password      String
+  phoneNumber   String?        @unique
+  role          String         @default("CONSUMER")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  consumer      Consumer?
+  operator      Operator?
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model Consumer {
+  id             Int            @id @default(autoincrement())
+  userId         Int            @unique
+  meterNumber    String         @unique
+  address        String
+  connectionType String         @default("RESIDENTIAL")
+  status         String         @default("ACTIVE")
+  lastReading    Float          @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  bills          Bill[]
+  complaints     Complaint[]
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments       Payment[]
+  meters         Meter[]
+
+  @@map("consumers")
+}
+
+model Meter {
+  id              Int      @id @default(autoincrement())
+  consumerId      Int
+  meterId         String   @unique
+  meterName       String   @default("Energy Meter")
+  connectionType  String   // TCP or RS485
+  ipAddress       String?
+  port            Int?
+  comPort         String?
+  baudRate        Int?
+  dataBits        Int      @default(8)
+  parity          String   @default("none") // none, even, odd
+  stopBits        Int      @default(1)
+  modbusAddress   Int      @default(1) // Slave ID
+  status          String   @default("Disconnected") // Connected, Disconnected
+  lastUpdated     DateTime @default(now()) @updatedAt
+  consumer        Consumer @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  registers       Register[]
+  readings        MeterReading[]
+
+  @@map("meters")
+}
+
+model Register {
+  id           Int      @id @default(autoincrement())
+  meterId      Int
+  label        String   // Voltage, Current, Power, Energy
+  address      String
+  functionCode Int      @default(3) // 03 or 04
+  dataType     String   @default("Float") // Float, Int16, Int32
+  meter        Meter    @relation(fields: [meterId], references: [id], onDelete: Cascade)
+
+  @@map("registers")
+}
+
+model Operator {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bills     Bill[]   @relation("GeneratedBy")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("operators")
+}
+
+model Bill {
+  id          Int        @id @default(autoincrement())
+  billNumber  String     @unique @default(uuid())
+  consumerId  Int
+  operatorId  Int?
+  prevReading Float
+  currReading Float
+  units       Float
+  ratePerUnit Float      @default(6)
+  baseAmount  Float
+  taxPercent  Float      @default(5)
+  taxAmount   Float
+  totalAmount Float
+  dueDate     DateTime
+  billMonth   String
+  status      String     @default("PENDING")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  consumer    Consumer   @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  operator    Operator?  @relation("GeneratedBy", fields: [operatorId], references: [id])
+  payments    Payment[]
+
+  @@map("bills")
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  transactionId String        @unique @default(uuid())
+  billId        Int
+  consumerId    Int
+  amount        Float
+  mode          String        @default("ONLINE")
+  status        String        @default("SUCCESS")
+  paidAt        DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  bill          Bill          @relation(fields: [billId], references: [id], onDelete: Cascade)
+  consumer      Consumer      @relation(fields: [consumerId], references: [id])
+
+  @@map("payments")
+}
+
+model MeterReading {
+  id        Int      @id @default(autoincrement())
+  meterId   Int
+  voltage   Float?
+  current   Float?
+  power     Float?
+  energy    Float
+  frequency Float?
+  pf        Float?
+  status    String   @default("Online")
+  createdAt DateTime @default(now())
+  meter     Meter    @relation(fields: [meterId], references: [id], onDelete: Cascade)
+
+  @@index([meterId])
+  @@index([createdAt])
+  @@map("meter_readings")
+}
+
+model Complaint {
+  id              Int             @id @default(autoincrement())
+  complaintNumber String          @unique @default(uuid())
+  consumerId      Int
+  type            String
+  description     String
+  status          String          @default("PENDING")
+  assignedTo      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  subject         String
+  consumer        Consumer        @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+
+  @@map("complaints")
+}
+
+model SystemSetting {
+  id              Int      @id @default(1)
+  maintenanceMode Boolean  @default(false)
+  residentialRate Float    @default(6)
+  commercialRate  Float    @default(8)
+  industrialRate  Float    @default(12)
+  taxPercent      Float    @default(5)
+  gatewayIp       String   @default("192.168.1.100")
+  gatewayPort     Int      @default(502)
+  baudRate        Int      @default(9600)
+  pollingInterval Int      @default(15) // seconds
+  updatedAt       DateTime @updatedAt
+
+  @@map("system_settings")
+}
