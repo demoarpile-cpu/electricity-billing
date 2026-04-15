@@ -9,6 +9,9 @@ async function main() {
             take: 5,
             orderBy: { createdAt: 'desc' }
         });
+        console.log('METERS_START');
+        console.log(JSON.stringify(meters, null, 2));
+        console.log('METERS_END');
         console.log('READINGS_START');
         console.log(JSON.stringify(readings, null, 2));
         console.log('READINGS_END');

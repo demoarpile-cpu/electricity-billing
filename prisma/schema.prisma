@@ -60,6 +60,7 @@ model Meter {
   consumerId      Int
   meterId         String   @unique
   meterName       String   @default("Energy Meter")
+  meterModel      String?  @default("Generic Modbus")
   connectionType  String   // TCP or RS485
   ipAddress       String?
   port            Int?
@@ -69,6 +70,9 @@ model Meter {
   parity          String   @default("none") // none, even, odd
   stopBits        Int      @default(1)
   modbusAddress   Int      @default(1) // Slave ID
+  pollingInterval Int      @default(5000) // ms
+  timeout         Int      @default(3000) // ms
+  retries         Int      @default(3)
   status          String   @default("Disconnected") // Connected, Disconnected
   lastUpdated     DateTime @default(now()) @updatedAt
   consumer        Consumer @relation(fields: [consumerId], references: [id], onDelete: Cascade)
@@ -85,6 +89,7 @@ model Register {
   address      String
   functionCode Int      @default(3) // 03 or 04
   dataType     String   @default("Float") // Float, Int16, Int32
+  scaling      Float    @default(1.0)
   meter        Meter    @relation(fields: [meterId], references: [id], onDelete: Cascade)
 
   @@map("registers")

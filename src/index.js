@@ -39,7 +39,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ======================================================
-// CORS
+// CORS — shared instance used for BOTH preflight + requests
 // ======================================================
 
 const corsOptions = cors({
@@ -50,8 +50,12 @@ const corsOptions = cors({
       origin.startsWith('http://localhost') ||
       origin.startsWith('http://127.0.0.1') ||
       origin.endsWith('.railway.app');
-
-    isAllowed ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.error('[CORS] Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -59,6 +63,7 @@ const corsOptions = cors({
   optionsSuccessStatus: 200
 });
 
+// Preflight must come FIRST (before auth or any other middleware)
 app.options('*', corsOptions);
 app.use(corsOptions);
 
@@ -74,19 +79,19 @@ app.use(express.urlencoded({ extended: true }));
 // ======================================================
 
 app.use((req, res, next) => {
-  console.log(`[${req.method}] ${req.originalUrl}`);
+  console.log('[' + req.method + '] ' + req.originalUrl + ' | Origin: ' + (req.headers.origin || 'No Origin'));
   next();
 });
 
 // ======================================================
-// HEALTH CHECK
+// HEALTH CHECKS
 // ======================================================
 
 app.get('/', (req, res) => res.status(200).send('PowerBill API Running'));
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // ======================================================
-// ROUTES
+// API ROUTES
 // ======================================================
 
 const apiRouter = express.Router();
@@ -102,6 +107,7 @@ apiRouter.use('/meters', meterRoutes);
 apiRouter.use('/reports', reportRoutes);
 
 app.use('/api', apiRouter);
+console.log('[SERVER] API routes loaded');
 
 // ======================================================
 // SOCKET.IO
@@ -109,10 +115,22 @@ app.use('/api', apiRouter);
 
 const io = new Server(server, {
   cors: {
-    origin: true,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      const isAllowed =
+        ALLOWED_ORIGINS.includes(origin) ||
+        origin.startsWith('http://localhost') ||
+        origin.startsWith('http://127.0.0.1') ||
+        origin.endsWith('.railway.app');
+      isAllowed ? callback(null, true) : callback(new Error('Socket CORS blocked'));
+    },
+    methods: ['GET', 'POST'],
     credentials: true
   }
 });
+
+// CRITICAL: Make io globally accessible for controllers
+global.io = io;
 
 io.on('connection', (socket) => {
   console.log('[Socket] Connected:', socket.id);
@@ -120,20 +138,22 @@ io.on('connection', (socket) => {
 });
 
 // ======================================================
-// 404
+// 404 HANDLER
 // ======================================================
 
 app.use('*', (req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+  res.status(404).json({ success: false, message: 'Route not found: ' + req.originalUrl });
 });
 
 // ======================================================
-// ERROR HANDLER
+// GLOBAL ERROR HANDLER
 // ======================================================
 
 app.use((err, req, res, next) => {
-  console.error('[ERROR]', err.message);
-  res.status(500).json({ success: false, message: err.message });
+  const isCors = err.message === 'Not allowed by CORS';
+  const status = isCors ? 403 : 500;
+  console.error('[' + (isCors ? 'CORS' : 'SERVER') + ' ERROR]', err.message);
+  res.status(status).json({ success: false, message: err.message || 'Internal Server Error' });
 });
 
 // ======================================================
@@ -143,17 +163,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[SERVER] Running on port ${PORT}`);
-
-  // 🔥 SAFE MODBUS INIT (IMPORTANT FIX)
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('[MODBUS] Starting locally...');
-      modbusEngine.init(io);
-    } catch (err) {
-      console.error('[MODBUS ERROR]', err.message);
-    }
-  } else {
-    console.log('[MODBUS] Skipped in production (Railway)');
-  }
+  console.log('[SERVER] Running on port ' + PORT);
+  // init() is NOT async — it just schedules polling internally
+  modbusEngine.init(io);
 });

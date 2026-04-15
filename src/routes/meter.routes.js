@@ -33,6 +33,7 @@ router.put('/:id/registers', protect, authorize('ADMIN'), meterController.update
 
 // @desc    Receive telemetry from Edge Agent
 // @route   POST /api/meters/meter-data
+router.get('/agent-config', meterController.getMeterConfig);
 router.post('/meter-data', meterController.receiveAgentData);
 
 // @desc    Agent Heartbeat

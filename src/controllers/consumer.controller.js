@@ -94,7 +94,9 @@ const createConsumer = async (req, res) => {
     try {
         const { 
             name, email, password, meterNumber, address, connectionType,
-            meterId, meterConnectionType, ipAddress, port, comPort, baudRate, modbusAddress 
+            meterId, meterConnectionType, ipAddress, port, comPort, baudRate, modbusAddress,
+            parity, dataBits, stopBits,
+            pollingInterval, timeout, retries
         } = req.body;
 
         if (!name || !email || !meterNumber || !address || !meterId || !meterConnectionType || !modbusAddress) {
@@ -124,7 +126,13 @@ const createConsumer = async (req, res) => {
                                 port: port ? Number(port) : null,
                                 comPort,
                                 baudRate: baudRate ? Number(baudRate) : null,
+                                parity: parity || 'none',
+                                dataBits: dataBits ? Number(dataBits) : 8,
+                                stopBits: stopBits ? Number(stopBits) : 1,
                                 modbusAddress: Number(modbusAddress),
+                                pollingInterval: pollingInterval ? Number(pollingInterval) : 5000,
+                                timeout: timeout ? Number(timeout) : 3000,
+                                retries: retries ? Number(retries) : 3,
                                 status: 'Disconnected',
                                 // Automatically add standard registers for immediate monitoring
                                 registers: {
@@ -162,7 +170,8 @@ const updateConsumer = async (req, res) => {
     try {
         const { 
             name, email, address, connectionType, status,
-            meterId, meterConnectionType, ipAddress, port, comPort, baudRate, modbusAddress 
+            meterId, meterConnectionType, ipAddress, port, comPort, baudRate, modbusAddress,
+            parity, dataBits, stopBits 
         } = req.body;
         const consumerId = Number(req.params.id);
 
@@ -198,14 +207,25 @@ const updateConsumer = async (req, res) => {
                             port: port ? Number(port) : null,
                             comPort,
                             baudRate: baudRate ? Number(baudRate) : null,
+                            parity: parity || 'none',
+                            dataBits: dataBits ? Number(dataBits) : 8,
+                            stopBits: stopBits ? Number(stopBits) : 1,
                             modbusAddress: Number(modbusAddress || 1),
+                            pollingInterval: pollingInterval ? Number(pollingInterval) : 5000,
+                            timeout: timeout ? Number(timeout) : 3000,
+                            retries: retries ? Number(retries) : 3,
                         },
                         update: {
                             meterId, connectionType: meterConnectionType, ipAddress,
                             port: port ? Number(port) : null,
-                            comPort,
-                            baudRate: baudRate ? Number(baudRate) : null,
+                            comPort, baudRate: baudRate ? Number(baudRate) : null,
+                            parity: parity || 'none',
+                            dataBits: dataBits ? Number(dataBits) : 8,
+                            stopBits: stopBits ? Number(stopBits) : 1,
                             modbusAddress: Number(modbusAddress),
+                            pollingInterval: pollingInterval ? Number(pollingInterval) : 5000,
+                            timeout: timeout ? Number(timeout) : 3000,
+                            retries: retries ? Number(retries) : 3,
                         }
                     }
                 }
