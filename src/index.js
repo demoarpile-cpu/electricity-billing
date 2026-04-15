@@ -35,7 +35,8 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5175',
   'https://electricity-billing.kiaantechnology.com',
   'https://electricity-billing-production.up.railway.app',
-  'https://electricity-billing-production-4c58.up.railway.app'
+  'https://electricity-billing-production-4c58.up.railway.app',
+  'http://electricityb.kiaansoftware.com'
 ];
 
 // ======================================================
